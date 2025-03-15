@@ -10,60 +10,34 @@ import {
 } from "react-router";
 import { nanoid } from "nanoid";
 
-import { names, type ChatMessage, type Message } from "../shared";
-
 function App() {
-  const [name] = useState(names[Math.floor(Math.random() * names.length)]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [name] = useState(() => {
+    let userName = "";
+    while (!userName) {
+      userName = prompt("Enter your name:")?.trim() || "";
+    }
+    return userName;
+  });
+  
+  const [messages, setMessages] = useState([]);
   const { room } = useParams();
 
   const socket = usePartySocket({
     party: "chat",
     room,
     onMessage: (evt) => {
-      const message = JSON.parse(evt.data as string) as Message;
+      const message = JSON.parse(evt.data);
       if (message.type === "add") {
         const foundIndex = messages.findIndex((m) => m.id === message.id);
         if (foundIndex === -1) {
-          // probably someone else who added a message
-          setMessages((messages) => [
-            ...messages,
-            {
-              id: message.id,
-              content: message.content,
-              user: message.user,
-              role: message.role,
-            },
-          ]);
+          setMessages((messages) => [...messages, message]);
         } else {
-          // this usually means we ourselves added a message
-          // and it was broadcasted back
-          // so let's replace the message with the new message
           setMessages((messages) => {
-            return messages
-              .slice(0, foundIndex)
-              .concat({
-                id: message.id,
-                content: message.content,
-                user: message.user,
-                role: message.role,
-              })
-              .concat(messages.slice(foundIndex + 1));
+            return messages.map((m) =>
+              m.id === message.id ? message : m
+            );
           });
         }
-      } else if (message.type === "update") {
-        setMessages((messages) =>
-          messages.map((m) =>
-            m.id === message.id
-              ? {
-                  id: message.id,
-                  content: message.content,
-                  user: message.user,
-                  role: message.role,
-                }
-              : m,
-          ),
-        );
       } else {
         setMessages(message.messages);
       }
@@ -83,24 +57,19 @@ function App() {
         onSubmit={(e) => {
           e.preventDefault();
           const content = e.currentTarget.elements.namedItem(
-            "content",
+            "content"
           ) as HTMLInputElement;
-          const chatMessage: ChatMessage = {
+          if (!content.value.trim()) return;
+          
+          const chatMessage = {
             id: nanoid(8),
             content: content.value,
             user: name,
             role: "user",
           };
+          
           setMessages((messages) => [...messages, chatMessage]);
-          // we could broadcast the message here
-
-          socket.send(
-            JSON.stringify({
-              type: "add",
-              ...chatMessage,
-            } satisfies Message),
-          );
-
+          socket.send(JSON.stringify({ type: "add", ...chatMessage }));
           content.value = "";
         }}
       >
@@ -108,7 +77,7 @@ function App() {
           type="text"
           name="content"
           className="ten columns my-input-text"
-          placeholder={`Chat`}
+          placeholder="Chat"
           autoComplete="off"
         />
         <button type="submit" className="send-message two columns">
@@ -119,7 +88,6 @@ function App() {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <Routes>
@@ -127,5 +95,5 @@ createRoot(document.getElementById("root")!).render(
       <Route path="/:room" element={<App />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
-  </BrowserRouter>,
+  </BrowserRouter>
 );

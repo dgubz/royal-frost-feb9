@@ -108,7 +108,7 @@ function App() {
           type="text"
           name="content"
           className="ten columns my-input-text"
-          placeholder={`Hello ${name}! Type a message...`}
+          placeholder={`Chat`}
           autoComplete="off"
         />
         <button type="submit" className="send-message two columns">
